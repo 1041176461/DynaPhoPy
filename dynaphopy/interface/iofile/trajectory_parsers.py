@@ -7,7 +7,8 @@ import warnings
 
 # VASP OUTCAR file parser
 def read_vasp_trajectory(file_name, structure=None, time_step=None,
-                         limit_number_steps=10000000,  # Maximum number of steps read (for security)
+                         # Maximum number of steps read (for security)
+                         limit_number_steps=10000000,
                          last_steps=None,
                          initial_cut=1,
                          end_cut=None,
@@ -15,7 +16,8 @@ def read_vasp_trajectory(file_name, structure=None, time_step=None,
                          template=None):
 
     # warning
-    warnings.warn('This parser will be deprecated, you can use XDATCAR instead', DeprecationWarning)
+    warnings.warn(
+        'This parser will be deprecated, you can use XDATCAR instead', DeprecationWarning)
 
     # Check file exists
     if not os.path.isfile(file_name):
@@ -38,24 +40,26 @@ def read_vasp_trajectory(file_name, structure=None, time_step=None,
 
     with open(file_name, "r+") as f:
 
-        #Memory-map the file
+        # Memory-map the file
         file_map = mmap.mmap(f.fileno(), 0)
-        position_number=file_map.find(b'NIONS =')
+        position_number = file_map.find(b'NIONS =')
         file_map.seek(position_number+7)
         number_of_atoms = int(file_map.readline())
 
-        #Read time step
-        position_number=file_map.find(b'POTIM  =')
+        # Read time step
+        position_number = file_map.find(b'POTIM  =')
         file_map.seek(position_number+8)
-        time_step = float(file_map.readline().split()[0])* 1E-3 # in picoseconds
+        time_step = float(file_map.readline().split()[
+                          0]) * 1E-3  # in picoseconds
 
-        #Reading super cell
+        # Reading super cell
         position_number = file_map.find(b'direct lattice vectors')
         file_map.seek(position_number)
         file_map.readline()
         super_cell = []
-        for i in range (number_of_dimensions):
-            super_cell.append(file_map.readline().split()[0:number_of_dimensions])
+        for i in range(number_of_dimensions):
+            super_cell.append(file_map.readline().split()
+                              [0:number_of_dimensions])
         super_cell = np.array(super_cell, dtype='double')
 
         file_map.seek(position_number)
@@ -73,36 +77,40 @@ def read_vasp_trajectory(file_name, structure=None, time_step=None,
         counter = 0
         while True:
 
-            counter +=1
-            #Initial cut control
+            counter += 1
+            # Initial cut control
             if initial_cut > counter:
                 continue
 
-            position_number=file_map.find(b'POSITION')
-            if position_number < 0 : break
+            position_number = file_map.find(b'POSITION')
+            if position_number < 0:
+                break
 
             file_map.seek(position_number)
             file_map.readline()
             file_map.readline()
 
             read_coordinates = []
-            for i in range (number_of_atoms):
-                read_coordinates.append(file_map.readline().split()[0:number_of_dimensions])
+            for i in range(number_of_atoms):
+                read_coordinates.append(file_map.readline().split()[
+                                        0:number_of_dimensions])
 
-            read_coordinates = np.array(read_coordinates, dtype=float) # in angstrom
+            read_coordinates = np.array(
+                read_coordinates, dtype=float)  # in angstrom
             if template is not None:
                 indexing = np.argsort(template)
                 read_coordinates = read_coordinates[indexing, :]
 
-            position_number=file_map.find(b'energy(')
+            position_number = file_map.find(b'energy(')
             file_map.seek(position_number)
             read_energy = file_map.readline().split()[2]
-            trajectory.append(read_coordinates.flatten()) #in angstrom
+            trajectory.append(read_coordinates.flatten())  # in angstrom
             energy.append(np.array(read_energy, dtype=float))
 
-            #security routine to limit maximum of steps to read and put in memory
+            # security routine to limit maximum of steps to read and put in memory
             if limit_number_steps+initial_cut < counter:
-                print("Warning! maximum number of steps reached! No more steps will be read")
+                print(
+                    "Warning! maximum number of steps reached! No more steps will be read")
                 break
 
             if end_cut is not None and end_cut <= counter:
@@ -113,14 +121,15 @@ def read_vasp_trajectory(file_name, structure=None, time_step=None,
         trajectory = np.array([[[trajectory[i][j*number_of_dimensions+k]
                                  for k in range(number_of_dimensions)]
                                 for j in range(number_of_atoms)]
-                               for i in range (len(trajectory))])
+                               for i in range(len(trajectory))])
 
         if last_steps is not None:
-            trajectory = trajectory[-last_steps:,:,:]
+            trajectory = trajectory[-last_steps:, :, :]
             energy = energy[-last_steps:]
 
         print('Number of total steps read: {0}'.format(trajectory.shape[0]))
-        time = np.array([i*time_step for i in range(trajectory.shape[0])], dtype=float)
+        time = np.array(
+            [i*time_step for i in range(trajectory.shape[0])], dtype=float)
 
         print('Trajectory file read')
         return dyn.Dynamics(structure=structure,
@@ -140,7 +149,6 @@ def read_lammps_trajectory(file_name, structure=None, time_step=None,
                            memmap=False,
                            template=None):
 
-
     # Time in picoseconds
     # Coordinates in Angstroms
 
@@ -158,7 +166,7 @@ def read_lammps_trajectory(file_name, structure=None, time_step=None,
     number_of_atoms = None
     bounds = None
 
-    #Check file exists
+    # Check file exists
     if not os.path.isfile(file_name):
         print('Trajectory file does not exist!')
         exit()
@@ -193,19 +201,19 @@ def read_lammps_trajectory(file_name, structure=None, time_step=None,
 
             counter += 1
 
-            #Read time steps
-            position_number=file_map.find(b'TIMESTEP')
-            if position_number < 0: break
+            # Read time steps
+            position_number = file_map.find(b'TIMESTEP')
+            if position_number < 0:
+                break
 
             file_map.seek(position_number)
             file_map.readline()
             time.append(float(file_map.readline()))
 
-
             if number_of_atoms is None:
-                #Read number of atoms
+                # Read number of atoms
                 file_map = mmap.mmap(f.fileno(), 0)
-                position_number=file_map.find(b'NUMBER OF ATOMS')
+                position_number = file_map.find(b'NUMBER OF ATOMS')
                 file_map.seek(position_number)
                 file_map.readline()
                 number_of_atoms = int(file_map.readline())
@@ -213,12 +221,13 @@ def read_lammps_trajectory(file_name, structure=None, time_step=None,
                 # Check if number of atoms is multiple of cell atoms
                 if structure is not None:
                     if number_of_atoms % structure.get_number_of_cell_atoms() != 0:
-                        print('Warning: Number of atoms not matching, check LAMMPS output file')
+                        print(
+                            'Warning: Number of atoms not matching, check LAMMPS output file')
 
             if bounds is None:
-                #Read cell
+                # Read cell
                 file_map = mmap.mmap(f.fileno(), 0)
-                position_number=file_map.find(b'BOX BOUNDS')
+                position_number = file_map.find(b'BOX BOUNDS')
                 file_map.seek(position_number)
                 file_map.readline()
 
@@ -228,7 +237,8 @@ def read_lammps_trajectory(file_name, structure=None, time_step=None,
 
                 bounds = np.array(bounds, dtype=float)
                 if bounds.shape[1] == 2:
-                    bounds = np.append(bounds, np.array([0, 0, 0])[None].T ,axis=1)
+                    bounds = np.append(bounds, np.array(
+                        [0, 0, 0])[None].T, axis=1)
 
                 xy = bounds[0, 2]
                 xz = bounds[1, 2]
@@ -242,11 +252,12 @@ def read_lammps_trajectory(file_name, structure=None, time_step=None,
                 zhi = bounds[2, 1]
 
                 supercell = np.array([[xhi-xlo, xy,  xz],
-                                       [0,  yhi-ylo,  yz],
-                                       [0,   0,  zhi-zlo]]).T
+                                      [0,  yhi-ylo,  yz],
+                                      [0,   0,  zhi-zlo]]).T
 
-                #for 2D
-                supercell = supercell[:number_of_dimensions, :number_of_dimensions]
+                # for 2D
+                supercell = supercell[:number_of_dimensions,
+                                      :number_of_dimensions]
 
                 # Testing cell
                 lx = xhi-xlo
@@ -254,8 +265,8 @@ def read_lammps_trajectory(file_name, structure=None, time_step=None,
                 lz = zhi-zlo
 
                 a = lx
-                b = np.sqrt(pow(ly,2) + pow(xy,2))
-                c = np.sqrt(pow(lz,2) + pow(xz,2) +  pow(yz,2))
+                b = np.sqrt(pow(ly, 2) + pow(xy, 2))
+                c = np.sqrt(pow(lz, 2) + pow(xz, 2) + pow(yz, 2))
 
                 alpha = np.arccos((xy*xz + ly*yz)/(b*c))
                 beta = np.arccos(xz/c)
@@ -270,31 +281,35 @@ def read_lammps_trajectory(file_name, structure=None, time_step=None,
                 unit_structure = unit_matrix(structure.get_cell())
                 unit_supercell_lammps = unit_matrix(supercell)
 
-                transformation_mat = np.dot(np.linalg.inv(unit_structure), unit_supercell_lammps).T
+                transformation_mat = np.dot(np.linalg.inv(
+                    unit_structure), unit_supercell_lammps).T
 
                 supercell = np.dot(supercell, transformation_mat)
 
                 if memmap:
                     if end_cut:
-                        data = np.memmap(temp_directory+'trajectory.{0}'.format(os.getpid()), dtype='complex', mode='w+', shape=(end_cut - initial_cut+1, number_of_atoms, number_of_dimensions))
+                        data = np.memmap(temp_directory+'trajectory.{0}'.format(os.getpid()), dtype='complex', mode='w+', shape=(
+                            end_cut - initial_cut+1, number_of_atoms, number_of_dimensions))
                     else:
-                        print('Memory mapping requires to define reading range (use read_from/read_to option)')
+                        print(
+                            'Memory mapping requires to define reading range (use read_from/read_to option)')
                         exit()
 
             position_number = file_map.find(b'ITEM: ATOMS')
 
             file_map.seek(position_number)
-            lammps_labels=file_map.readline()
+            lammps_labels = file_map.readline()
 
-            #Initial cut control
+            # Initial cut control
             if initial_cut > counter:
                 time = []
                 continue
 
-            #Reading coordinates
+            # Reading coordinates
             read_coordinates = []
-            for i in range (number_of_atoms):
-                read_coordinates.append(file_map.readline().split()[0:number_of_dimensions])
+            for i in range(number_of_atoms):
+                read_coordinates.append(file_map.readline().split()[
+                                        0:number_of_dimensions])
             read_coordinates = np.array(read_coordinates, dtype=float)
 
             if template is not None:
@@ -304,18 +319,20 @@ def read_lammps_trajectory(file_name, structure=None, time_step=None,
             try:
                 read_coordinates = np.dot(read_coordinates, transformation_mat)
                 if memmap:
-                    data[counter-initial_cut, :, :] = read_coordinates #in angstroms
+                    data[counter-initial_cut, :,
+                         :] = read_coordinates  # in angstroms
                 else:
-                    data.append(read_coordinates) #in angstroms
+                    data.append(read_coordinates)  # in angstroms
 
             except ValueError:
                 print("Error reading step {0}".format(counter))
                 break
                 # print(read_coordinates)
 
-            #security routine to limit maximum of steps to read and put in memory
+            # security routine to limit maximum of steps to read and put in memory
             if limit_number_steps+initial_cut < counter:
-                print("Warning! maximum number of steps reached! No more steps will be read")
+                print(
+                    "Warning! maximum number of steps reached! No more steps will be read")
                 break
 
             if end_cut is not None and end_cut <= counter:
@@ -331,7 +348,6 @@ def read_lammps_trajectory(file_name, structure=None, time_step=None,
         if last_steps is not None:
             data = data[-last_steps:, :, :]
             time = time[-last_steps:]
-
 
     # Check position/velocity dump
     if b'vx vy' in lammps_labels:
@@ -363,7 +379,7 @@ def read_VASP_XDATCAR(file_name, structure=None, time_step=None,
     # Time in picoseconds
     # Coordinates in Angstroms
 
-    #Read environtment variables
+    # Read environtment variables
     try:
         temp_directory = os.environ["DYNAPHOPY_TEMPDIR"]
         if os.path.isdir(temp_directory):
@@ -377,22 +393,22 @@ def read_VASP_XDATCAR(file_name, structure=None, time_step=None,
     number_of_atoms = None
     bounds = None
 
-    #Check file exists
+    # Check file exists
     if not os.path.isfile(file_name):
         print('Trajectory file does not exist!')
         exit()
 
-    #Check time step
+    # Check time step
     if time_step is None:
         print('Warning! XDATCAR file does not contain time step information')
         print('Using default: 0.001 ps')
         time_step = 0.001
 
-    #Starting reading
+    # Starting reading
     print("Reading XDATCAR file")
     print("This may take long, please wait..")
 
-    #Dimensionality of VASP calculation
+    # Dimensionality of VASP calculation
     number_of_dimensions = 3
 
     time = []
@@ -403,62 +419,71 @@ def read_VASP_XDATCAR(file_name, structure=None, time_step=None,
 
         file_map = mmap.mmap(f.fileno(), 0)
 
-        #Read cell
-        for i in range(2): file_map.readline()
+        # Read cell
+        for i in range(2):
+            file_map.readline()
         a = file_map.readline().split()
         b = file_map.readline().split()
         c = file_map.readline().split()
         super_cell = np.array([a, b, c], dtype='double')
 
-        for i in range(1): file_map.readline()
-        number_of_atoms = np.array(file_map.readline().split(), dtype=int).sum()
+        for i in range(1):
+            file_map.readline()
+        number_of_atoms = np.array(
+            file_map.readline().split(), dtype=int).sum()
 
         while True:
 
             counter += 1
-            #Read time steps
-            position_number=file_map.find(b'Direct configuration')
-            if position_number < 0: break
+            # Read time steps
+            position_number = file_map.find(b'Direct configuration')
+            if position_number < 0:
+                break
 
             file_map.seek(position_number)
             time.append(float(file_map.readline().split(b'=')[1]))
 
             if memmap:
                 if end_cut:
-                    data = np.memmap(temp_directory+'trajectory.{0}'.format(os.getpid()), dtype='complex', mode='w+', shape=(end_cut - initial_cut+1, number_of_atoms, number_of_dimensions))
+                    data = np.memmap(temp_directory+'trajectory.{0}'.format(os.getpid()), dtype='complex', mode='w+', shape=(
+                        end_cut - initial_cut+1, number_of_atoms, number_of_dimensions))
                 else:
-                    print('Memory mapping requires to define reading range (use read_from/read_to option)')
+                    print(
+                        'Memory mapping requires to define reading range (use read_from/read_to option)')
                     exit()
 
-
-            #Initial cut control
+            # Initial cut control
             if initial_cut > counter:
                 continue
 
-            #Reading coordinates
+            # Reading coordinates
             read_coordinates = []
-            for i in range (number_of_atoms):
-                read_coordinates.append(file_map.readline().split()[0:number_of_dimensions])
+            for i in range(number_of_atoms):
+                read_coordinates.append(file_map.readline().split()[
+                                        0:number_of_dimensions])
 
-            read_coordinates = np.array(read_coordinates, dtype=float)  # in angstroms
+            read_coordinates = np.array(
+                read_coordinates, dtype=float)  # in angstroms
             if template is not None:
                 indexing = np.argsort(template)
                 read_coordinates = read_coordinates[indexing, :]
 
             try:
                 if memmap:
-                    data[counter-initial_cut, :, :] = read_coordinates #in angstroms
+                    data[counter-initial_cut, :,
+                         :] = read_coordinates  # in angstroms
                 else:
-                    data.append(read_coordinates) #in angstroms
+                    data.append(read_coordinates)  # in angstroms
 
             except ValueError:
                 print("Error reading step {0}".format(counter))
                 break
                 # print(read_coordinates)
 
-            #security routine to limit maximum of steps to read and put in memory
+            # security routine to limit maximum of steps to read and put in memory
             if limit_number_steps+initial_cut < counter:
-                print("Warning! maximum number of steps reached! No more steps will be read")
+                print(
+                    "Warning! maximum number of steps reached! No more steps will be read")
                 break
 
             if end_cut is not None and end_cut <= counter:
@@ -475,11 +500,131 @@ def read_VASP_XDATCAR(file_name, structure=None, time_step=None,
             data = data[-last_steps:, :, :]
             time = time[-last_steps:]
 
-
     return dyn.Dynamics(structure=structure,
                         scaled_trajectory=data,
                         time=time,
                         supercell=super_cell,
+                        memmap=memmap)
+
+
+def read_ABACUS_MDDump(file_name, structure=None, time_step=None,
+                       limit_number_steps=10000000,
+                       last_steps=None,
+                       initial_cut=1,
+                       end_cut=None,
+                       memmap=False,
+                       template=None):
+
+    # Time in picoseconds
+    # Coordinates in Angstroms
+
+    # Read environtment variables
+    # Read environtment variables
+    try:
+        temp_directory = os.environ["DYNAPHOPY_TEMPDIR"]
+        if os.path.isdir(temp_directory):
+            print('Set temporal directory: {0}'.format(temp_directory))
+            temp_directory += '/'
+        else:
+            temp_directory = ''
+    except KeyError:
+        temp_directory = ''
+
+    # Check file exists
+    if not os.path.isfile(file_name):
+        print('Trajectory file does not exist!')
+        exit()
+
+    # Check time step
+    if time_step is None:
+        print('Warning! ABACUS MD_dump file does not contain time step information')
+        print('Using default: 0.001 ps')
+        time_step = 0.001
+
+    # Starting reading
+    print("Reading ABACUS MD_dump file")
+    print("This may take long, please wait..")
+
+    md_steps = []
+    lattice_constant = []
+    lattice_vectors = []
+    if memmap:
+        if temp_directory:
+            positions = np.memmap(temp_directory+'trajectory.{0}'.format(os.getpid()), dtype='complex', mode='w+', shape=(
+                end_cut - initial_cut+1, number_of_atoms, number_of_dimensions))
+        else:
+            print('Memory mapping requires to define temporal directory')
+            exit()
+    else:
+        positions = []
+    forces = []
+    velocities = []
+    number_of_atoms = 0
+    number_of_dimensions = 3
+
+    with open(file_name, "r+b") as f:
+
+        file_map = mmap.mmap(f.fileno(), 0)
+        current_step = 0
+        while line:
+            if line.startswith('MDSTEP'):
+                current_step += 1
+                if initial_cut and current_step < initial_cut:
+                    line = file_map.readline()
+                    continue
+                if end_cut and current_step >= end_cut:
+                    break
+                md_steps.append(int(line.split(':')[1].strip()))
+            elif line.startswith('LATTICE_CONSTANT'):
+                lattice_constant.append(float(
+                    line.split(':')[1].strip().split(' ')[0]))
+            elif line.startswith('LATTICE_VECTORS'):
+                lv = np.empty((3, 3), dtype="double")
+                for i in range(3):
+                    vector_line = file_map.readline()
+                    lv[i] = [float(value)
+                             for value in vector_line.strip().split()]
+                lattice_vectors.append(lv)
+            elif line.startswith('INDEX'):
+                header_line = line.strip().split()
+                headers = header_line[1:4] + \
+                    header_line[5:9] + header_line[10:14]
+            else:
+                if current_step >= initial_cut:
+                    atom_line = line.strip().split()
+                    atom_data = []
+                    for i in range(1, len(headers)):
+                        atom_data.append(float(atom_line[i]))
+                    positions.append(atom_data[0:3])
+                    forces.append(atom_data[3:6])
+                    velocities.append(atom_data[6:9])
+                    number_of_atoms += 1
+
+            if current_step >= limit_number_steps:
+                print(
+                    "Warning! maximum number of steps reached! No more steps will be read")
+                break
+
+            line = file_map.readline()
+
+    if len(set(tuple(map(tuple, lattice_vectors)))) > 1:
+        print("Error: Different lattice vectors found in different MD steps!")
+        exit()
+    else:
+        supercell = lattice_vectors[0]
+    time = np.array(md_steps) * time_step
+
+    if not memmap:
+        data = np.array(positions, dtype=complex)
+
+        if last_steps is not None:
+            data = data[-last_steps:, :, :]
+            time = time[-last_steps:]
+
+    return dyn.Dynamics(structure=structure,
+                        scaled_trajectory=data,
+                        time=time,
+                        supercell=supercell,
                         memmap=memmap)
 
 
